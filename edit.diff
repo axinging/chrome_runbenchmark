@@ -1,0 +1,29 @@
+diff --git a/telemetry/telemetry/internal/backends/chrome/chrome_startup_args.py b/telemetry/telemetry/internal/backends/chrome/chrome_startup_args.py
+index 6ca51de15..7e8855199 100644
+--- a/telemetry/telemetry/internal/backends/chrome/chrome_startup_args.py
++++ b/telemetry/telemetry/internal/backends/chrome/chrome_startup_args.py
+@@ -12,9 +12,9 @@ from telemetry.internal.browser import user_agent
+ 
+ def GetFromBrowserOptions(browser_options):
+   """Get a list of startup args from the given browser_options."""
+-  assert not '--no-proxy-server' in browser_options.extra_browser_args, (
+-      '--no-proxy-server flag is disallowed as Chrome needs to be route to '
+-      'ts_proxy_server')
++  # assert not '--no-proxy-server' in browser_options.extra_browser_args, (
++  #     '--no-proxy-server flag is disallowed as Chrome needs to be route to '
++  #     'ts_proxy_server')
+ 
+   # Override privacy sandbox dialog feature to hide it (crbug.com/330241089).
+   browser_options.AppendExtraBrowserArgs(
+@@ -93,6 +93,11 @@ def GetReplayArgs(network_backend, supports_spki_list=True):
+   if not network_backend.is_open:
+     return args
+ 
++  # When using live traffic, skip tsproxy so that Chrome can use its own
++  # proxy settings (e.g. --proxy-server from --extra-browser-args).
++  if network_backend.use_live_traffic:
++    return args
++
+   # Send all browser traffic (including requests to 127.0.0.1 and localhost) to
+   # ts_proxy_server.
+   # The proxy should NOT be set to "localhost", otherwise Chrome will first
