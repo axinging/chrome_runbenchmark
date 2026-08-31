@@ -6,6 +6,39 @@
 
 - `setup_chromium_env.py` — 环境搭建脚本（安装工具、下载代码）
 - `graphite_vs_ganesh_dropped.py` — 性能测试脚本（运行 rendering.desktop benchmark）
+- `config.json` — **本地配置文件**（代理等机器相关配置），不入 git
+- `config.example.json` — 配置模板，复制为 `config.json` 后按需修改
+
+## 零、本地配置（config.json）
+
+代理地址不再硬编码在脚本里，改为从脚本同目录下的 `config.json` 读取。
+
+```shell
+copy config.example.json config.json
+```
+
+然后编辑 `config.json`：
+
+```json
+{
+  "proxy": "http://proxy.example.com:911"
+}
+```
+
+| 字段 | 说明 |
+|---|---|
+| `proxy` | HTTP/HTTPS 代理地址。留空字符串 `""` 或删除该字段表示不使用代理 |
+
+读取该配置的脚本：
+
+| 脚本 | 用途 | 行为 |
+|---|---|---|
+| `setup_chromium_env.py` | 给 git / gclient / fetch 设置代理 | `--proxy` 的**默认值**即 `config.json` 里的 `proxy`；`--proxy=<url>` 可覆盖，`--proxy=` 可禁用 |
+| `graphite_vs_ganesh_dropped.py` | 给 Chrome 设置 `--proxy-server` | 默认**不启用**代理，需显式传 `--proxy`（不带值时暂不会自动读取 config，见下方注意事项） |
+
+**容错**：`config.json` 不存在或格式错误时，脚本不会崩溃——代理按"未配置"处理（即不使用代理），格式错误会额外打印一条 warning。
+
+**不要提交 `config.json`**：已在 `.gitignore` 中忽略，避免把内网代理地址推到远端仓库。
 
 ## 一、环境搭建（新机器首次使用）
 
@@ -44,10 +77,13 @@ python setup_chromium_env.py
 ### 常用选项
 
 ```shell
-# 指定代理（默认已配置代理）
-python setup_chromium_env.py --proxy=http://proxy.com:11
+# 使用 config.json 里配置的代理（默认行为，无需额外参数）
+python setup_chromium_env.py
 
-# 不使用代理
+# 临时覆盖 config.json 里的代理
+python setup_chromium_env.py --proxy=http://proxy.example.com:911
+
+# 本次不使用代理（不改 config.json）
 python setup_chromium_env.py --proxy=
 
 # 自定义目录
@@ -101,6 +137,12 @@ python graphite_vs_ganesh_dropped.py run --story=wikipedia_2018 --mode=ganesh
 
 # 运行所有 story（需先 init）
 python graphite_vs_ganesh_dropped.py run
+
+# 访问 live sites 需要走代理时，显式指定
+python graphite_vs_ganesh_dropped.py run --story=youtube_2018 --proxy=http://proxy.example.com:911
+
+# 明确禁用代理（本地 story / 直连网络）
+python graphite_vs_ganesh_dropped.py run --story=wikipedia_2018 --no-proxy
 ```
 
 python graphite_vs_ganesh_dropped.py run --story=main_15fps_with_jank_impl_0fps
@@ -160,7 +202,35 @@ python analyze_results.py <results_dir> --csv output.csv
 
 ## 注意事项
 
-- 需要网络代理才能访问 live sites（已在 Chrome 启动参数中配置）
+### 代理相关
+
+- **不是所有脚本都需要代理。** 只有两类操作需要：
+  1. `setup_chromium_env.py` 下载 depot_tools / Chromium 源码（走 git、gclient）
+  2. benchmark 访问 **live sites**（`--use-live-sites`，如 youtube_2018、wikipedia_2018）
+
+  其余场景一般 **不需要** 代理，例如：
+  - 用本地 HTTP server 跑 story（`serve_stories.py` + `stories_local_http.json`）
+  - 纯本地的分析脚本（`analyze_results.py` 等），它们只读磁盘上的 trace/结果文件
+  - 机器本身可直连外网（家庭网络、非内网环境）
+
+  这些情况下 `config.json` 可以不创建，或把 `proxy` 设成 `""`。
+
+- 代理只对本地回环地址例外：脚本会自动设置 `no_proxy=localhost,127.0.0.1`，
+  并给 Chrome 加 `--proxy-bypass-list=localhost;127.0.0.1;<local>`，
+  否则 DevTools WebSocket 连接会被代理拦掉、benchmark 直接失败。
+
+- 两个脚本的默认值**不一样**，容易踩坑：
+  - `setup_chromium_env.py`：默认**读 `config.json` 并启用**代理
+  - `graphite_vs_ganesh_dropped.py`：默认**不启用**代理（`PROXY = ''`），
+    需要时用 `--proxy=<url>` 显式指定，`--no-proxy` 显式关闭
+
+- 走代理跑 live sites 前，必须先执行过 `patch` 命令（见"二、运行性能测试 → 1. 打补丁"），
+  否则 Telemetry 的 tsproxy 会覆盖掉自定义代理，表现为页面打不开。详见 `proxy.md`。
+
+- `config.json` 里是内网地址，**不要提交到 git**（已在 `.gitignore` 中）。
+
+### 其他
+
 - 默认使用 Chrome Canary（`%LOCALAPPDATA%\Google\Chrome SxS\Application\chrome.exe`）
 - Graphite 使用 Dawn D3D11 后端（`--skia-graphite-backend=dawn-d3d11`）
 

@@ -19,6 +19,22 @@ import time
 from datetime import datetime
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_FILE = os.path.join(SCRIPT_DIR, 'config.json')
+
+
+def load_config():
+    """Load local (untracked) config.json. Returns {} if missing."""
+    try:
+        with open(CONFIG_FILE, encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as e:
+        print(f'Warning: cannot read {CONFIG_FILE}: {e}')
+        return {}
+
+
+CONFIG = load_config()
 
 # Auto-detect SRC_DIR: if script is inside an existing chromium/src checkout,
 # use parent dir; otherwise assume chromium/src is a subdirectory.
@@ -35,7 +51,7 @@ DEFAULT_CHROME_DIR = os.path.join(
     os.environ['LOCALAPPDATA'], 'Google', 'Chrome SxS', 'Application'
 )
 BROWSER_EXECUTABLE = os.path.join(DEFAULT_CHROME_DIR, 'chrome.exe')
-DEFAULT_PROXY = 'http://proxy..com:11'
+DEFAULT_PROXY = CONFIG.get('proxy', '')
 PROXY = ''
 
 # Ensure localhost connections (DevTools WebSocket) bypass the proxy
@@ -702,7 +718,7 @@ def main():
     run_parser.add_argument('--no-proxy', action='store_true',
                            help='Disable proxy for Chrome')
     run_parser.add_argument('--proxy', default=None,
-                           help='Override proxy URL (default: Intel proxy)')
+                           help='Override proxy URL (default: "proxy" from config.json)')
     run_parser.add_argument('--postfix', default='',
                            help='Append a suffix to the results folder name')
 
