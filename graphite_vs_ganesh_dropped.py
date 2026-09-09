@@ -514,7 +514,7 @@ def run_benchmark(story, label, extra_chrome_flags, results_dir, timeout=300):
         f'--profile-type=exact '
         f'--browser-executable="{BROWSER_EXECUTABLE}" '
         f'--story={story} '
-        f'--use-live-sites '
+        #f'--use-live-sites '
         f"--extra-browser-args=\"{extra_args}\" "
         f'--legacy-json-trace-format '
         f'--results-label={label} '

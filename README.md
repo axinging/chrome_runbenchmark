@@ -96,6 +96,23 @@ python setup_chromium_env.py --skip-fetch
 python setup_chromium_env.py --skip-git-config
 ```
 
+如果要支持WPR，setup_chromium_env注释掉webpagereplay：
+# Other
+# if no use-live site: src\\third_party\\webpagereplay\\scripts\\run_wpr.py': [Errno 2] No such file or directory
+#'src/third_party/webpagereplay',
+
+然后在.gclient 删除webpagereplay相关行。重新运行python setup_chromium_env.py --proxy=
+
+
+git bash:
+export BOTO_CONFIG=$(gcloud info --format "value(config.paths.global_config_dir)")/legacy_credentials/$(gcloud config list --format="value(core.account)")/.boto
+
+gcloud auth login
+
+
+
+
+
 ## 二、运行性能测试
 
 进入 graphiteperf 目录：

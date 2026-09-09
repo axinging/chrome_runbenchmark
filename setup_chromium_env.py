@@ -394,7 +394,8 @@ SKIP_DEPS = [
     'src/third_party/widevine/cdm/win',
     'src/third_party/widevine/scripts',
     # Other
-    'src/third_party/webpagereplay',
+    # if no use-live site: src\\third_party\\webpagereplay\\scripts\\run_wpr.py': [Errno 2] No such file or directory
+    #'src/third_party/webpagereplay',
     'src/third_party/perl',
     'src/third_party/sqlite/src',
     'src/third_party/crossbench',
