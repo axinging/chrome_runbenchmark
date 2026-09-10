@@ -109,6 +109,8 @@ export BOTO_CONFIG=$(gcloud info --format "value(config.paths.global_config_dir)
 
 gcloud auth login
 
+vpython3 tools/perf/fetch_benchmark_deps.py rendering.desktop -v
+
 
 
 

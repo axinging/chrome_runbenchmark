@@ -45,7 +45,7 @@ else:
     DEFAULT_SRC_DIR = os.path.join(SCRIPT_DIR, 'chromium', 'src')
 
 SRC_DIR = DEFAULT_SRC_DIR
-STORIES_FILE = os.path.join(SCRIPT_DIR, 'stories0901.json')
+STORIES_FILE = os.path.join(SCRIPT_DIR, 'stories0909.json')
 
 DEFAULT_CHROME_DIR = os.path.join(
     os.environ['LOCALAPPDATA'], 'Google', 'Chrome SxS', 'Application'
