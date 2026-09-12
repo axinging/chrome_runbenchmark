@@ -6,7 +6,7 @@ import subprocess
 import sys
 import argparse
 
-def run_analysis(root_dir, script_name="analyze_results.py"):
+def run_analysis(root_dir, script_name="analyze_droppedframe_results.py"):
     """
     Iterate through all subdirectories in root_dir and run:
     python3 script_name --html <subdir>.html <subdir>
