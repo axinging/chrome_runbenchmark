@@ -1,6 +1,6 @@
 """Setup script to install tools and fetch minimal Chromium code on Windows.
 
-This script prepares the environment to run graphite_vs_ganesh.py by:
+This script prepares the environment to run graphite_vs_ganesh_dropped.py by:
 1. Checking/installing Git
 2. Cloning depot_tools
 3. Configuring environment variables
@@ -510,7 +510,7 @@ def fetch_chromium(chromium_dir):
 # ============================================================
 
 def install_python_deps():
-    """Install Python packages needed by graphite_vs_ganesh.py."""
+    """Install Python packages needed by graphite_vs_ganesh_dropped.py."""
     print('\n' + '=' * 60)
     print('Step 5: Installing Python dependencies')
     print('=' * 60)
@@ -532,7 +532,7 @@ def install_python_deps():
 # ============================================================
 
 def verify_setup(chromium_dir):
-    """Verify that the environment is ready for graphite_vs_ganesh.py."""
+    """Verify that the environment is ready for graphite_vs_ganesh_dropped.py."""
     print('\n' + '=' * 60)
     print('Step 6: Verifying setup')
     print('=' * 60)
@@ -545,8 +545,8 @@ def verify_setup(chromium_dir):
             os.path.join(src_dir, 'tools', 'perf', 'run_benchmark'))),
         ('third_party/catapult/telemetry', os.path.exists(
             os.path.join(src_dir, 'third_party', 'catapult', 'telemetry'))),
-        ('graphiteperf/graphite_vs_ganesh.py', os.path.exists(
-            os.path.join(src_dir, 'graphiteperf', 'graphite_vs_ganesh.py'))),
+        ('graphiteperf/graphite_vs_ganesh_dropped.py', os.path.exists(
+            os.path.join(src_dir, 'graphiteperf', 'graphite_vs_ganesh_dropped.py'))),
     ]
 
     all_ok = True
@@ -560,8 +560,8 @@ def verify_setup(chromium_dir):
         print('\n[SUCCESS] Environment is ready!')
         print(f'\nTo run benchmarks:')
         print(f'  cd {src_dir}')
-        print(f'  python graphiteperf\\graphite_vs_ganesh.py init')
-        print(f'  python graphiteperf\\graphite_vs_ganesh.py run --story=<story_name>')
+        print(f'  python graphiteperf\\graphite_vs_ganesh_dropped.py init')
+        print(f'  python graphiteperf\\graphite_vs_ganesh_dropped.py run --story=<story_name>')
     else:
         print('\n[WARN] Some components are missing. Check the output above.')
 
@@ -593,7 +593,7 @@ def main():
     args = parser.parse_args()
 
     print('=' * 60)
-    print('Chromium Environment Setup for graphite_vs_ganesh.py')
+    print('Chromium Environment Setup for graphite_vs_ganesh_dropped.py')
     print('=' * 60)
     print(f'  depot_tools dir: {args.depot_tools_dir}')
     print(f'  chromium dir:    {args.chromium_dir}')
