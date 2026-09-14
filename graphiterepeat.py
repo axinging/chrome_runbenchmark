@@ -36,6 +36,30 @@ def run_command(cmd):
     end = time.perf_counter()
     return end - start
 
+def sendStatus(status, test_name='', server_url='http://http://10.239.47.99:9801/status'):
+    import socket
+    import os
+    import requests
+    """
+    Send test status to the server.
+    :param status: string, e.g., 'START', 'END', 'FAIL', 'SUCCESS', etc.
+    :param server_url: server endpoint (change to actual IP)
+    """
+    machine_name = socket.gethostname()
+    payload = {
+        'machine_name': machine_name,
+        'test_name': test_name,
+        'status': status
+    }
+    try:
+        r = requests.post(server_url, json=payload, timeout=5)
+        if r.status_code == 200:
+            print(f'Status "{status}" sent successfully')
+        else:
+            print(f'Server responded with error: {r.status_code}')
+    except Exception as e:
+        print(f'Failed to send: {e}')
+
 def run_stats(cmd, runs, label):
     """Run the given command `runs` times, print per-run and summary stats.
 
@@ -44,10 +68,12 @@ def run_stats(cmd, runs, label):
     times = []
     print(f"Starting {runs} test run(s) for: {label}\n")
     for i in range(1, runs + 1):
+        sendStatus("Run {i} start", "chrome_benchmark")
         print(f"[{label}] Run {i}:")
         duration = run_command(cmd)
         times.append(duration)
         print(f"  Duration: {duration:.2f} seconds\n")
+        sendStatus("Run {i} end", "chrome_benchmark")
 
     if times:
         avg = sum(times) / len(times)
@@ -138,3 +164,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    sendStatus("END", "chrome_benchmark")
