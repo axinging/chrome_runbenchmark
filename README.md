@@ -2,6 +2,62 @@
 
 比较 Chrome 在 Graphite 和 Ganesh 渲染后端下的性能表现。
 
+## 快速启动
+
+
+1. Prepare chromium source tools
+```
+git config --global http.proxy http://.com:9
+git config --global https.proxy http://.com:9
+git clone https://github.com/axinging/chrome_runbenchmark.git
+````
+cd chrome_runbenchmark, add config.json
+```json
+{
+  "proxy": "http://.com:9"
+}
+```
+
+Download chromium run benchmark source and tools:
+
+```
+python setup_chromium_env.py
+```
+
+2. google wpr auth
+
+Install https://docs.cloud.google.com/sdk/docs/install-sdk
+``` 
+(New-Object Net.WebClient).DownloadFile("https://dl.google.com/dl/cloudsdk/channels/rapid/GoogleCloudSDKInstaller.exe", "$env:Temp\GoogleCloudSDKInstaller.exe")
+
+& $env:Temp\GoogleCloudSDKInstaller.exe
+``` 
+
+If failed due to proxY:
+https://docs.cloud.google.com/sdk/docs/downloads-versioned-archives
+
+git bash:
+export BOTO_CONFIG=$(gcloud info --format "value(config.paths.global_config_dir)")/legacy_credentials/$(gcloud config list --format="value(core.account)")/.boto
+
+gcloud auth login
+
+gcloud config set proxy/type  http
+
+gcloud config set proxy/address c.com
+
+gcloud config set proxy/port 913
+
+3. Download wpr resources:
+vpython3 tools/perf/fetch_benchmark_deps.py rendering.desktop -v
+
+4. get all stories list:
+python graphite_vs_ganesh_dropped.py init
+
+5. Run all stories:
+
+
+
+
 ## 文件说明
 
 - `setup_chromium_env.py` — 环境搭建脚本（安装工具、下载代码）
