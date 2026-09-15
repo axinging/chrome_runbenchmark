@@ -60,7 +60,7 @@ def sendStatus(status, test_name='', server_url='http://http://10.239.47.99:9801
     except Exception as e:
         print(f'Failed to send: {e}')
 
-def run_stats(cmd, runs, label):
+def run_stats(cmd, runs, label, send_status=False):
     """Run the given command `runs` times, print per-run and summary stats.
 
     Returns the list of durations (seconds).
@@ -68,12 +68,14 @@ def run_stats(cmd, runs, label):
     times = []
     print(f"Starting {runs} test run(s) for: {label}\n")
     for i in range(1, runs + 1):
-        sendStatus("Run {i} start", "chrome_benchmark")
+        if send_status:
+            sendStatus(f"Run {i} start", "chrome_benchmark")
         print(f"[{label}] Run {i}:")
         duration = run_command(cmd)
         times.append(duration)
         print(f"  Duration: {duration:.2f} seconds\n")
-        sendStatus("Run {i} end", "chrome_benchmark")
+        if send_status:
+            sendStatus(f"Run {i} end", "chrome_benchmark")
 
     if times:
         avg = sum(times) / len(times)
@@ -102,6 +104,8 @@ def main():
                              'built-in Chrome path)')
     parser.add_argument('--runs', type=int, default=3,
                         help='Number of runs per Chrome (default: 3)')
+    parser.add_argument('--sendStatus', action='store_true',
+                        help='Report run status to the status server')
     args = parser.parse_args()
 
     # Get the directory where this script lives
@@ -149,7 +153,7 @@ def main():
         print("#" * 70)
         print(f"# Chrome: {label}")
         print("#" * 70)
-        all_stats[label] = run_stats(cmd, args.runs, label)
+        all_stats[label] = run_stats(cmd, args.runs, label, args.sendStatus)
 
     # Cross-Chrome comparison when more than one Chrome was tested.
     if len(all_stats) > 1:
@@ -162,6 +166,8 @@ def main():
                 print(f"  {label}: no runs recorded")
         print("====================================================")
 
+    return args.sendStatus
+
 if __name__ == "__main__":
-    main()
-    sendStatus("END", "chrome_benchmark")
+    if main():
+        sendStatus("END", "chrome_benchmark")
