@@ -13,6 +13,8 @@ def run_analysis(root_dir, script_name="analyze_droppedframe.py"):
     """
     # Save original working directory to restore later
     original_cwd = os.getcwd()
+    # Get analyze_droppedframe
+    script_name_prefix = os.path.splitext(os.path.basename(script_name))[0]
     try:
         # Change to the root directory so that HTML files are generated there
         os.chdir(root_dir)
@@ -20,8 +22,8 @@ def run_analysis(root_dir, script_name="analyze_droppedframe.py"):
         for item in os.listdir('.'):
             if os.path.isdir(item):
                 # Build the command
-                html_file = item + ".html"
-                csv_file = item + ".csv"
+                html_file = script_name_prefix + "-" + item + ".html"
+                csv_file = script_name_prefix + "-" + item + ".csv"
                 cmd = ["python", script_name, "--html", html_file,"--csv", csv_file, item]
                 print(f"Running: {' '.join(cmd)}")
                 # Execute the command
