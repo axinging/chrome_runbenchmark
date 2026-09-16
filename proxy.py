@@ -6,6 +6,16 @@ Usage:
     python proxy.py override                  # always (re)write proxy, regardless of current value
     python proxy.py unset                     # remove/disable proxy everywhere
     python proxy.py help                      # print copy-pasteable manual set/unset commands
+    python proxy.py backup                    # save current proxy state to a JSON file
+    python proxy.py restore                   # write proxy state back from that JSON file
+
+Backup/restore:
+    - "backup" reads the current state of the selected --targets (windows/git/env) and writes it
+      to --file (default: proxy.json next to this script). If --targets is a subset, only those
+      keys are updated in the file; the rest of an existing file is left untouched.
+    - "restore" always overwrites the current state with whatever is in the file (like "override"),
+      including writing back an unset/empty target if that's what was backed up. Missing keys in
+      the file (because they were never backed up) are left alone.
 
 Address resolution:
     - If env var ALL_PROXY_ADDRESS is non-empty, it is used for every target (windows/git/http/https).
@@ -29,6 +39,7 @@ Notes:
 
 import argparse
 import ctypes
+import json
 import os
 import re
 import subprocess
@@ -40,7 +51,7 @@ if sys.platform != "win32":
 import winreg
 
 # Fallback addresses used when no explicit address is provided via --address/env var.
-DEFAULT_ALL_PROXY_ADDRESS = "http://proxy.abc.com:911"
+DEFAULT_ALL_PROXY_ADDRESS = "http://proxy-.com:911"
 DEFAULT_WINDOWS_PROXY_ADDRESS = DEFAULT_ALL_PROXY_ADDRESS
 DEFAULT_GIT_PROXY_ADDRESS = DEFAULT_ALL_PROXY_ADDRESS
 DEFAULT_HTTP_PROXY_ADDRESS = DEFAULT_ALL_PROXY_ADDRESS
@@ -48,6 +59,9 @@ DEFAULT_HTTPS_PROXY_ADDRESS = DEFAULT_ALL_PROXY_ADDRESS
 
 INTERNET_SETTINGS_KEY = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings"
 ENVIRONMENT_KEY = "Environment"
+
+# Default backup/restore file: proxy.json next to this script.
+DEFAULT_BACKUP_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "proxy.json")
 
 
 # --------------------------------------------------------------------------
@@ -83,6 +97,14 @@ def set_windows_proxy(address):
         winreg.SetValueEx(key, "ProxyServer", 0, winreg.REG_SZ, server)
     _refresh_windows_internet_settings()
     return server
+
+
+def set_windows_proxy_raw(enabled, server):
+    """Write ProxyEnable/ProxyServer exactly as given, without address normalization (for restore)."""
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, INTERNET_SETTINGS_KEY, 0, winreg.KEY_SET_VALUE) as key:
+        winreg.SetValueEx(key, "ProxyEnable", 0, winreg.REG_DWORD, 1 if enabled else 0)
+        winreg.SetValueEx(key, "ProxyServer", 0, winreg.REG_SZ, server or "")
+    _refresh_windows_internet_settings()
 
 
 def unset_windows_proxy():
@@ -294,11 +316,101 @@ def print_manual_commands(addresses, targets):
     print("# Note: reg/setx changes only apply to new processes started after the change")
     print("# (e.g. open a new terminal window). Re-run this script instead if you want the")
     print("# running process + broadcast notification handled automatically.")
+    print()
+    print("# --- backup / restore current state (via this script, not raw shell commands) ---")
+    print(f'python "{os.path.abspath(__file__)}" backup')
+    print(f'python "{os.path.abspath(__file__)}" restore')
+
+
+# --------------------------------------------------------------------------
+# Backup / restore (JSON snapshot of all three targets)
+# --------------------------------------------------------------------------
+
+def do_backup(path, targets):
+    state = {}
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                state = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            state = {}
+
+    if "windows" in targets:
+        enabled, server = get_windows_proxy()
+        state["windows"] = {"enabled": enabled, "server": server}
+        print(f"[backup] windows: enabled={enabled} server={server!r}")
+
+    if "git" in targets:
+        http_value = get_git_proxy("http.proxy")
+        https_value = get_git_proxy("https.proxy")
+        if http_value is None or https_value is None:
+            print("[backup] git: git executable not found on PATH, skip")
+        else:
+            state["git"] = {"http.proxy": http_value, "https.proxy": https_value}
+            print(f"[backup] git: http.proxy={http_value!r} https.proxy={https_value!r}")
+
+    if "env" in targets:
+        http_env = get_persistent_env("http_proxy")
+        https_env = get_persistent_env("https_proxy")
+        state["env"] = {"http_proxy": http_env, "https_proxy": https_env}
+        print(f"[backup] env: http_proxy={http_env!r} https_proxy={https_env!r}")
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(state, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    print(f"[backup] written to {path}")
+
+
+def do_restore(path, targets):
+    if not os.path.exists(path):
+        print(f"[restore] file not found: {path}")
+        return
+
+    with open(path, "r", encoding="utf-8") as f:
+        state = json.load(f)
+
+    if "windows" in targets:
+        windows_state = state.get("windows")
+        if windows_state is None:
+            print("[restore] windows: no data in backup file, skip")
+        else:
+            enabled = bool(windows_state.get("enabled"))
+            server = windows_state.get("server") or ""
+            set_windows_proxy_raw(enabled, server)
+            print(f"[restore] windows: enabled={enabled} server={server!r}")
+
+    if "git" in targets:
+        git_state = state.get("git")
+        if git_state is None:
+            print("[restore] git: no data in backup file, skip")
+        elif get_git_proxy("http.proxy") is None:
+            print("[restore] git: git executable not found on PATH, skip")
+        else:
+            for key in ("http.proxy", "https.proxy"):
+                value = git_state.get(key) or ""
+                if value:
+                    set_git_proxy(key, value)
+                else:
+                    unset_git_proxy(key)
+                print(f"[restore] git: {key} -> {value or '(unset)'}")
+
+    if "env" in targets:
+        env_state = state.get("env")
+        if env_state is None:
+            print("[restore] env: no data in backup file, skip")
+        else:
+            for name in ("http_proxy", "https_proxy"):
+                value = env_state.get(name) or ""
+                if value:
+                    set_persistent_env(name, value)
+                else:
+                    unset_persistent_env(name)
+                print(f"[restore] env: {name} -> {value or '(unset)'}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("action", choices=["set", "unset", "override", "help"])
+    parser.add_argument("action", choices=["set", "unset", "override", "help", "backup", "restore"])
     parser.add_argument("--address", help="Address used for all targets (overrides ALL_PROXY_ADDRESS env var)")
     parser.add_argument("--windows-address", help="Address for Windows system proxy")
     parser.add_argument("--git-address", help="Address for git http.proxy/https.proxy")
@@ -308,10 +420,23 @@ def main():
         "--targets", default="windows,git,env",
         help="Comma-separated subset of: windows,git,env (default: all)",
     )
+    parser.add_argument(
+        "--file", default=DEFAULT_BACKUP_FILE,
+        help=f"Backup/restore JSON file path (default: {DEFAULT_BACKUP_FILE})",
+    )
     args = parser.parse_args()
 
-    addresses = resolve_addresses(args)
     targets = {t.strip() for t in args.targets.split(",") if t.strip()}
+
+    if args.action == "backup":
+        do_backup(args.file, targets)
+        return
+
+    if args.action == "restore":
+        do_restore(args.file, targets)
+        return
+
+    addresses = resolve_addresses(args)
 
     if args.action == "help":
         print_manual_commands(addresses, targets)
