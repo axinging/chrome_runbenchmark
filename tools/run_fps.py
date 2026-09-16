@@ -409,7 +409,8 @@ def kill_benchmark_chrome(user_data_dir: str):
 def main():
     parser = argparse.ArgumentParser(description="Chrome rendering benchmark")
     parser.add_argument("--runs", type=int, default=1, help="Number of times to repeat the full benchmark (default: 1)")
-    parser.add_argument("--fps", action="store_true", help="Enable FPS sampling via Chrome DevTools Protocol")
+    parser.add_argument("--fps", dest="fps", action="store_true", default=True, help="Enable FPS sampling via Chrome DevTools Protocol (default: on)")
+    parser.add_argument("--no-fps", dest="fps", action="store_false", help="Disable FPS sampling")
     parser.add_argument("--dryrun", action="store_true", help="Dry run: only test the first page")
     args = parser.parse_args()
 
