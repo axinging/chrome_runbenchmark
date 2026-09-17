@@ -364,7 +364,7 @@ def main(argv=None):
         keys.sort(key=lambda k: tuple(str(x) for x in k))
 
     output = args.output or os.path.join(
-        input_dir, "%s_extract.html" % os.path.basename(os.path.abspath(input_dir)))
+        input_dir, "%s_summary.html" % os.path.basename(os.path.abspath(input_dir)))
 
     meta = {
         "Source directory": os.path.abspath(input_dir),

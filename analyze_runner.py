@@ -38,15 +38,15 @@ def run_analysis(root_dir, script_name="analyze_droppedframe.py"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Run analyze_results.py for each subfolder in a directory."
+        description="Run analyze_droppedframe.py for each subfolder in a directory."
     )
     parser.add_argument(
         "root_dir", nargs='?', default='.',
         help="Root directory containing subfolders (default: current directory)"
     )
     parser.add_argument(
-        "--script", default="analyze_results.py",
-        help="Name of the analysis script (default: analyze_results.py)"
+        "--script", default="analyze_droppedframe.py",
+        help="Name of the analysis script (default: analyze_droppedframe.py)"
     )
     args = parser.parse_args()
     run_analysis(args.root_dir, args.script)
