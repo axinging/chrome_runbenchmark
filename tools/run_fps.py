@@ -31,10 +31,13 @@ except ImportError:
 
 
 # ==================== Helper Function ====================
-def extract_command_info(command_line: str) -> str:
+def extract_command_info(command_line: str, label: str = None) -> str:
     """Extract config label from a Chrome command line."""
-    # Part 0: Page/benchmark name
-    if "css_opaque_divs" in command_line:
+    # Part 0: Page/benchmark name. Prefer the caller-supplied URLS label
+    # (needed since several labels share the same URL, e.g. *_fast_call variants).
+    if label:
+        part0 = label
+    elif "css_opaque_divs" in command_line:
         part0 = "css"
     elif "webgl-animometer" in command_line or "Animometer" in command_line:
         part0 = "animometer"
@@ -455,31 +458,33 @@ def main():
     print()
 
     # ==================== Test URLs ====================
-    test_urls = [
-        "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html",
-        "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html?use_attributes=1",
-        "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html",
-        "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&num_geometries=120000",
-        "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&num_geometries=120000",
-        "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&use_multi_draw=1&num_geometries=120000",
-        "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&use_multi_draw=1&use_base_vertex_base_instance=1&num_geometries=120000",
-        "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html?webgl_version=2&use_ubos=1&use_multi_draw=1",
-        "http://webglsamples.org/aquarium/aquarium.html",
-        "http://webglsamples.org/aquarium/aquarium.html?numFish=20000",
-        "http://webglsamples.org/aquarium/aquarium.html?numFish=20000",
-    ]
+    # key 是输出文件名/Config 列里用的 label，同一个 URL 想跑多种场景（比如 *_fast_call
+    # 对照）时靠 label 区分，不能靠 URL 本身区分。
+    URLS = {
+        "animometer_webgl": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html",
+        "animometer_webgl_attrib_arrays": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html?use_attributes=1",
+        "animometer_webgl_fast_call": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html",
+        "animometer_webgl_indexed": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&num_geometries=120000",
+        "animometer_webgl_indexed_fast_call": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&num_geometries=120000",
+        "animometer_webgl_indexed_multi_draw": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&use_multi_draw=1&num_geometries=120000",
+        "animometer_webgl_indexed_multi_draw_base_vertex_base_instance": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&use_multi_draw=1&use_base_vertex_base_instance=1&num_geometries=120000",
+        "animometer_webgl_multi_draw": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html?webgl_version=2&use_ubos=1&use_multi_draw=1",
+        "aquarium": "http://webglsamples.org/aquarium/aquarium.html",
+        "aquarium_20k": "http://webglsamples.org/aquarium/aquarium.html?numFish=20000",
+        "aquarium_20k_fast_call": "http://webglsamples.org/aquarium/aquarium.html?numFish=20000",
+    }
     if dryrun:
-        test_urls = test_urls[:1]
+        URLS = dict(list(URLS.items())[:1])
         print("[DRYRUN] Only testing first page")
 
     # ==================== Test Commands ====================
     commands = []
-    for url in test_urls:
+    for label, url in URLS.items():
         # graphite-d3d11 + fps
-        commands.append(f"{url} --start-maximized --enable-experimental-web-platform-features --enable-skia-graphite --skia-graphite-backend=dawn-d3d11")
+        commands.append((label, f"{url} --start-maximized --enable-experimental-web-platform-features --enable-skia-graphite --skia-graphite-backend=dawn-d3d11"))
         # graphite-d3d11, no fps
         # ganesh only
-        commands.append(f"{url} --start-maximized --enable-experimental-web-platform-features --disable-skia-graphite")
+        commands.append((label, f"{url} --start-maximized --enable-experimental-web-platform-features --disable-skia-graphite"))
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -500,8 +505,8 @@ def main():
         all_results = []
         total = len(commands)
 
-        for idx, cmd_args in enumerate(commands, 1):
-            command_info = extract_command_info(f'"{chrome_path}" {cmd_args}')
+        for idx, (label, cmd_args) in enumerate(commands, 1):
+            command_info = extract_command_info(f'"{chrome_path}" {cmd_args}', label=label)
             profile_dir = os.path.join(output_dir, f"chrome-profile-{idx:02d}-{command_info}")
             launch_args = [
                 chrome_path,
@@ -514,7 +519,7 @@ def main():
                 launch_args.append("--remote-allow-origins=*")
             launch_args.extend(cmd_args.split())
             full_command = subprocess.list2cmdline(launch_args)
-            command_info = extract_command_info(full_command)
+            command_info = extract_command_info(full_command, label=label)
 
             print("=" * 64)
             print(f" [{idx}/{total}] Config: {command_info}")

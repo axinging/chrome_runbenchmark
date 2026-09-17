@@ -7,7 +7,7 @@
 使用 Chrome 内置的 startup tracing（--trace-startup）采集 TRACE_DURATION 秒，
 把结果写到 tracing-<日期> 文件夹里。
 
-文件名规则： <html文件名>[__<query>]__<配置名>__<时间>.json
+文件名规则： <URLS里的label>__<配置名>__<时间>.json
 配置名规则：
   --disable-skia-graphite                              -> ganesh
   --enable-skia-graphite --skia-graphite-backend=dawn-d3d11 -> graphit-d3d11
@@ -24,7 +24,6 @@ import time
 import shutil
 import subprocess
 import datetime
-from urllib.parse import urlparse
 
 # ============================ 可修改配置 ============================
 
@@ -70,20 +69,21 @@ TRACE_CATEGORIES = (
     "disabled-by-default-gpu.dawn,disabled-by-default-gpu.graphite.dawn"
 )
 
-# 要测的网页（可以放多个）
-URLS = [
-    "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html",
-    "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html?use_attributes=1",
-    "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html",
-    "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&num_geometries=120000",
-    "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&num_geometries=120000",
-    "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&use_multi_draw=1&num_geometries=120000",
-    "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&use_multi_draw=1&use_base_vertex_base_instance=1&num_geometries=120000",
-    "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html?webgl_version=2&use_ubos=1&use_multi_draw=1",
-    "http://webglsamples.org/aquarium/aquarium.html",
-    "http://webglsamples.org/aquarium/aquarium.html?numFish=20000",
-    "http://webglsamples.org/aquarium/aquarium.html?numFish=20000",
-]
+# 要测的网页（可以放多个）。key 是输出文件名里用的 label，
+# 同一个 URL 想跑多种场景（比如重复对照）时靠 label 区分，不能靠 URL 本身区分。
+URLS = {
+    "animometer_webgl": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html",
+    "animometer_webgl_attrib_arrays": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html?use_attributes=1",
+    "animometer_webgl_fast_call": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html",
+    "animometer_webgl_indexed": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&num_geometries=120000",
+    "animometer_webgl_indexed_fast_call": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&num_geometries=120000",
+    "animometer_webgl_indexed_multi_draw": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&use_multi_draw=1&num_geometries=120000",
+    "animometer_webgl_indexed_multi_draw_base_vertex_base_instance": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl-indexed-instanced.html?webgl_version=2&use_attributes=1&use_multi_draw=1&use_base_vertex_base_instance=1&num_geometries=120000",
+    "animometer_webgl_multi_draw": "http://kenrussell.github.io/webgl-animometer/Animometer/tests/3d/webgl.html?webgl_version=2&use_ubos=1&use_multi_draw=1",
+    "aquarium": "http://webglsamples.org/aquarium/aquarium.html",
+    "aquarium_20k": "http://webglsamples.org/aquarium/aquarium.html?numFish=20000",
+    "aquarium_20k_fast_call": "http://webglsamples.org/aquarium/aquarium.html?numFish=20000",
+}
 
 # 要测的浏览器配置（每个是附加到命令行的一组 flags）
 # 暂不测 D3D12（其 submit/present 有单独的 CPU 开销问题，另行跟踪）
@@ -118,28 +118,9 @@ def sanitize(text):
     return re.sub(r"[^A-Za-z0-9]+", "_", text).strip("_")
 
 
-def url_label(url):
-    """从 URL 中取出 html 文件名（去掉 .html）以及 query 部分。"""
-    parsed = urlparse(url)
-    base = os.path.basename(parsed.path)          # bouncing_balls.html
-    if base.lower().endswith(".html"):
-        base = base[:-len(".html")]               # bouncing_balls
-    name = sanitize(base) or "page"
-    query = sanitize(parsed.query)                # ball_image_with_shadow_back_image
-    return name, query
-
-
-def build_output_name(url, flags, ts):
-    name, query = url_label(url)
+def build_output_name(label, flags, ts):
     cfg = config_label(flags)
-    print(flags)
-    print(cfg)
-    parts = [name]
-    if query:
-        parts.append(query)
-    parts.append(cfg)
-    parts.append(ts)
-    return "__".join(parts) + ".json"
+    return "__".join([sanitize(label), cfg, ts]) + ".json"
 
 
 def clean_session(user_data_dir):
@@ -216,8 +197,8 @@ def kill_chrome_for_profile(user_data_dir):
     )
 
 
-def run_one(url, flags, out_dir, ts):
-    out_name = build_output_name(url, flags, ts)
+def run_one(label, url, flags, out_dir, ts):
+    out_name = build_output_name(label, flags, ts)
     out_path = os.path.join(out_dir, out_name)
 
     # 每个配置用固定 profile，保证 cache 一致；启动前清掉 session，避免旧 tab 恢复。
@@ -244,7 +225,7 @@ def run_one(url, flags, out_dir, ts):
         "--trace-startup-format=json",
     ] + list(flags) + [url]
 
-    print(f"\n[RUN] {config_label(flags)}  <-  {url}")
+    print(f"\n[RUN] {config_label(flags)}  <-  {label} ({url})")
     print(f"      输出: {out_path}")
     print(f"      命令: {' '.join(cmd)}")
 
@@ -291,12 +272,12 @@ def main():
     total = len(URLS) * len(CONFIGS)
     ok = 0
     idx = 0
-    for url in URLS:
+    for label, url in URLS.items():
         for flags in CONFIGS:
             idx += 1
             print(f"\n===== [{idx}/{total}] =====")
             ts = datetime.datetime.now().strftime("%H%M%S")
-            if run_one(url, flags, out_dir, ts):
+            if run_one(label, url, flags, out_dir, ts):
                 ok += 1
 
     print(f"\n完成: {ok}/{total} 成功。文件在 {out_dir}")
