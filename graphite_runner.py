@@ -8,7 +8,7 @@ import os
 def normalize_chrome_dir(path):
     """Accept either a chrome.exe path or a directory; return the directory.
 
-    graphite_vs_ganesh_dropped.py's --chrome-dir expects the directory that
+    graphite_ganesh_runbenchmark.py's --chrome-dir expects the directory that
     contains chrome.exe, but it's convenient to pass the full exe path too.
     """
     path = os.path.abspath(path)
@@ -93,14 +93,14 @@ def run_stats(cmd, runs, label, send_status=False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Repeat the graphite_vs_ganesh_dropped benchmark, '
+        description='Repeat the graphite_ganesh_runbenchmark benchmark, '
                     'optionally against several Chrome builds')
     parser.add_argument('--chrome-dir', nargs='+', default=None,
                         metavar='PATH',
                         help='One or more Chrome locations to test, each run '
                              'separately. Accepts either a directory containing '
                              'chrome.exe or the full path to chrome.exe. '
-                             '(default: use graphite_vs_ganesh_dropped.py\'s '
+                             '(default: use graphite_ganesh_runbenchmark.py\'s '
                              'built-in Chrome path)')
     parser.add_argument('--runs', type=int, default=3,
                         help='Number of runs per Chrome (default: 3)')
@@ -111,7 +111,7 @@ def main():
     # Get the directory where this script lives
     script_dir = os.path.dirname(os.path.abspath(__file__))
     # Build absolute path to the target script
-    target_script = os.path.join(script_dir, "graphite_vs_ganesh_dropped.py")
+    target_script = os.path.join(script_dir, "graphite_ganesh_runbenchmark.py")
 
     # Check if the target script exists
     if not os.path.isfile(target_script):

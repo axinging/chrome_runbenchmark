@@ -51,7 +51,7 @@ gcloud config set proxy/port 913
 vpython3 tools/perf/fetch_benchmark_deps.py rendering.desktop -v
 
 4. get all stories list:
-python graphite_vs_ganesh_dropped.py init
+python graphite_ganesh_runbenchmark.py init
 
 5. Run all stories:
 
@@ -61,7 +61,7 @@ python graphite_vs_ganesh_dropped.py init
 ## 文件说明
 
 - `setup_chromium_env.py` — 环境搭建脚本（安装工具、下载代码）
-- `graphite_vs_ganesh_dropped.py` — 性能测试脚本（运行 rendering.desktop benchmark）
+- `graphite_ganesh_runbenchmark.py` — 性能测试脚本（运行 rendering.desktop benchmark）
 - `config.json` — **本地配置文件**（代理等机器相关配置），不入 git
 - `config.example.json` — 配置模板，复制为 `config.json` 后按需修改
 
@@ -90,7 +90,7 @@ copy config.example.json config.json
 | 脚本 | 用途 | 行为 |
 |---|---|---|
 | `setup_chromium_env.py` | 给 git / gclient / fetch 设置代理 | `--proxy` 的**默认值**即 `config.json` 里的 `proxy`；`--proxy=<url>` 可覆盖，`--proxy=` 可禁用 |
-| `graphite_vs_ganesh_dropped.py` | 给 Chrome 设置 `--proxy-server` | 默认**不启用**代理，需显式传 `--proxy`（不带值时暂不会自动读取 config，见下方注意事项） |
+| `graphite_ganesh_runbenchmark.py` | 给 Chrome 设置 `--proxy-server` | 默认**不启用**代理，需显式传 `--proxy`（不带值时暂不会自动读取 config，见下方注意事项） |
 
 **容错**：`config.json` 不存在或格式错误时，脚本不会崩溃——代理按"未配置"处理（即不使用代理），格式错误会额外打印一条 warning。
 
@@ -182,7 +182,7 @@ cd D:\cr\chromium\src\graphiteperf
 ### 1. 打补丁（首次下载代码后执行一次）
 
 ```shell
-python graphite_vs_ganesh_dropped.py patch
+python graphite_ganesh_runbenchmark.py patch
 ```
 
 这会对 `third_party/catapult` 应用两个修复：
@@ -193,7 +193,7 @@ python graphite_vs_ganesh_dropped.py patch
 ### 2. 初始化（获取可用 story 列表）
 
 ```shell
-python graphite_vs_ganesh_dropped.py init
+python graphite_ganesh_runbenchmark.py init
 ```
 
 这会安装 Python 依赖并将所有 rendering.desktop story 保存到 `stories.json`。
@@ -202,25 +202,25 @@ python graphite_vs_ganesh_dropped.py init
 
 ```shell
 # 运行单个 story，同时测试 Graphite 和 Ganesh
-python graphite_vs_ganesh_dropped.py run --story=wikipedia_2018
+python graphite_ganesh_runbenchmark.py run --story=wikipedia_2018
 
 # 只测试 Graphite
-python graphite_vs_ganesh_dropped.py run --story=wikipedia_2018 --mode=graphite
+python graphite_ganesh_runbenchmark.py run --story=wikipedia_2018 --mode=graphite
 
 # 只测试 Ganesh
-python graphite_vs_ganesh_dropped.py run --story=wikipedia_2018 --mode=ganesh
+python graphite_ganesh_runbenchmark.py run --story=wikipedia_2018 --mode=ganesh
 
 # 运行所有 story（需先 init）
-python graphite_vs_ganesh_dropped.py run
+python graphite_ganesh_runbenchmark.py run
 
 # 访问 live sites 需要走代理时，显式指定
-python graphite_vs_ganesh_dropped.py run --story=youtube_2018 --proxy=http://proxy.example.com:911
+python graphite_ganesh_runbenchmark.py run --story=youtube_2018 --proxy=http://proxy.example.com:911
 
 # 明确禁用代理（本地 story / 直连网络）
-python graphite_vs_ganesh_dropped.py run --story=wikipedia_2018 --no-proxy
+python graphite_ganesh_runbenchmark.py run --story=wikipedia_2018 --no-proxy
 ```
 
-python graphite_vs_ganesh_dropped.py run --story=main_15fps_with_jank_impl_0fps
+python graphite_ganesh_runbenchmark.py run --story=main_15fps_with_jank_impl_0fps
 
 
 [text](../www/page_sets/simple_canvas/falling_particle_simulation_gpu_fix.html)
@@ -296,7 +296,7 @@ python analyze_results.py <results_dir> --csv output.csv
 
 - 两个脚本的默认值**不一样**，容易踩坑：
   - `setup_chromium_env.py`：默认**读 `config.json` 并启用**代理
-  - `graphite_vs_ganesh_dropped.py`：默认**不启用**代理（`PROXY = ''`），
+  - `graphite_ganesh_runbenchmark.py`：默认**不启用**代理（`PROXY = ''`），
     需要时用 `--proxy=<url>` 显式指定，`--no-proxy` 显式关闭
 
 - 走代理跑 live sites 前，必须先执行过 `patch` 命令（见"二、运行性能测试 → 1. 打补丁"），
@@ -348,7 +348,7 @@ git sparse-checkout set tools/perf third_party/catapult build graphiteperf
 
 ### 对你的场景建议
 
-graphite_vs_ganesh_dropped.py 运行只需要：
+graphite_ganesh_runbenchmark.py 运行只需要：
 - `tools/perf/` — benchmark runner
 - `third_party/catapult/` — telemetry framework
 - `build/` — 部分构建工具
