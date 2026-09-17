@@ -110,6 +110,8 @@ def config_label(flags):
         return "graphit-d3d11"
     if "--enable-skia-graphite" in joined and "--skia-graphite-backend=dawn-d3d12" in joined:
         return "graphit-d3d12"
+    if "--enable-skia-graphite" in joined:
+        return "graphit-d3d12"
     return "unknown"
 
 
