@@ -20,6 +20,8 @@ cd chrome_runbenchmark, add config.json
 
 Download chromium run benchmark source and tools:
 
+(Optional set DEPOT_TOOLS_WIN_TOOLCHAIN=0
+python setup_chromium_env.py)
 ```
 python setup_chromium_env.py
 ```
