@@ -48,7 +48,8 @@ tr:hover { background: #f8f9fa; }
 #orderPanel h3 { margin-bottom: 6px; color: #16213e; }
 #orderList { list-style: none; margin: 0; padding: 0; }
 #orderList li { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
-#orderList li span { flex: 1; font-family: monospace; }
+#orderList li .label { flex: 1; font-family: monospace; }
+#orderList li .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
 #orderList button { cursor: pointer; border: 1px solid #ddd; background: #f5f5f5; border-radius: 4px; padding: 2px 8px; }
 #orderList button:hover { background: #e8e8e8; }
 """.strip()
@@ -115,14 +116,23 @@ def split_rows(table):
     return header_rows, body_rows
 
 
+def build_source_colors(n):
+    """n distinct pastel row colors, hues chosen to avoid the red band."""
+    if n <= 0:
+        return []
+    if n == 1:
+        return ["hsl(210, 65%, 88%)"]
+    start, end = 35, 300  # skip 300-35 (red/pink/orange-red) so no color reads as "regress"
+    return ["hsl(%.0f, 65%%, 88%%)" % (start + (end - start) * i / (n - 1)) for i in range(n)]
+
+
 def build_merged_document(files, base_dir, filter_str):
     header_html = None
     body_rows_html = []
     labels = []
-    n_tables = 0
     n_rows = 0
 
-    for src_idx, f in enumerate(files):
+    for f in files:
         text = f.read_text(encoding="utf-8", errors="replace")
         soup = BeautifulSoup(text, "html.parser")
         table = soup.find("table")
@@ -131,9 +141,8 @@ def build_merged_document(files, base_dir, filter_str):
             continue
 
         header_rows, body_rows = split_rows(table)
-        label = f.relative_to(base_dir).as_posix()
-        if label.lower().endswith(".html"):
-            label = label[: -len(".html")]
+        label = f.stem
+        src_idx = len(labels)
         labels.append(label)
 
         if header_html is None and header_rows:
@@ -150,9 +159,15 @@ def build_merged_document(files, base_dir, filter_str):
             src_td.string = label
             row.insert(0, src_td)
             row["data-src"] = str(src_idx)
+            row["class"] = row.get("class", []) + ["src-%d" % src_idx]
             body_rows_html.append(str(row))
             n_rows += 1
-        n_tables += 1
+
+    n_tables = len(labels)
+    colors = build_source_colors(n_tables)
+    color_css = "\n".join(
+        "tr.src-%d { background: %s; }" % (i, color) for i, color in enumerate(colors)
+    )
 
     header_block = "<thead>\n%s\n</thead>\n" % header_html if header_html else ""
     table_html = '<table id="mainTable">\n%s<tbody>\n%s\n</tbody>\n</table>' % (
@@ -161,10 +176,12 @@ def build_merged_document(files, base_dir, filter_str):
     )
 
     order_items = "".join(
-        '<li data-src="%d"><span>%s</span>'
+        '<li data-src="%d">'
+        '<span class="swatch" style="background:%s"></span>'
+        '<span class="label">%s</span>'
         '<button onclick="moveGroup(%d,-1)">▲</button>'
         '<button onclick="moveGroup(%d,1)">▼</button></li>'
-        % (i, escape(label), i, i)
+        % (i, colors[i], escape(label), i, i)
         for i, label in enumerate(labels)
     )
     order_panel = (
@@ -177,7 +194,7 @@ def build_merged_document(files, base_dir, filter_str):
     doc = (
         "<!DOCTYPE html>\n"
         '<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
-        "<title>%s</title>\n<style>\n%s\n</style>\n</head>\n<body>\n"
+        "<title>%s</title>\n<style>\n%s\n%s\n</style>\n</head>\n<body>\n"
         '<div class="container">\n'
         "<h1>%s</h1>\n"
         "<p>Base dir: %s</p>\n"
@@ -186,7 +203,18 @@ def build_merged_document(files, base_dir, filter_str):
         "%s\n"
         "%s\n"
         "</div>\n</body>\n</html>\n"
-    ) % (title, STYLE, title, escape(str(base_dir)), n_tables, n_rows, order_panel, table_html, script)
+    ) % (
+        title,
+        STYLE,
+        color_css,
+        title,
+        escape(str(base_dir)),
+        n_tables,
+        n_rows,
+        order_panel,
+        table_html,
+        script,
+    )
 
     return doc, n_tables, n_rows
 
